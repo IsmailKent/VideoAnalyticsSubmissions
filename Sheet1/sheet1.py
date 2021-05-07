@@ -15,6 +15,7 @@ def extract_points_from_frame(frame):
     dst_norm = np.empty(dst.shape, dtype=np.float32)
     cv2.normalize(dst, dst_norm, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
     dst_norm_scaled = cv2.convertScaleAbs(dst_norm)
+    result = np.copy(dst_norm_scaled)
     # Drawing a circle around corners
     for i in range(dst_norm.shape[0]):
         for j in range(dst_norm.shape[1]):
@@ -22,6 +23,7 @@ def extract_points_from_frame(frame):
                 cv2.circle(dst_norm_scaled, (j,i), 5, (0), 2)
     cv2.namedWindow('Corners detected')
     cv2.imshow('Corners detected', dst_norm_scaled)
+    return result
 
 
 
@@ -48,7 +50,7 @@ def stack_video(video):
 video  = cv2.VideoCapture('data/dummy.avi')
 
 # EX1
-# EXTRACT POINTS     
+# Stack images   
 stack = stack_video(video)
 
 
@@ -58,7 +60,7 @@ while(video.isOpened()):
     ret, frame = video.read()
     if ret == True:
         i+=1
-        extract_points_from_frame(frame)
+        interest_points = extract_points_from_frame(frame)
         cv2.imshow('Frame',frame)
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
