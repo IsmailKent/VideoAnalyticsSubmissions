@@ -2,28 +2,16 @@ import cv2
 import numpy as np
 
 
-
+# Returns  2D list of corner points in image
 def extract_points_from_frame(frame):
     # Detector parameters
-    blockSize = 3
-    apertureSize = 5
-    k = 0.04
-    # Detecting corners
-    dst = cv2.cornerHarris(frame, blockSize, apertureSize, k)
-    # Normalizing
-    dst_norm = np.empty(dst.shape, dtype=np.float32)
-    cv2.normalize(dst, dst_norm, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-    dst_norm_scaled = cv2.convertScaleAbs(dst_norm)
-    result = np.zeros((dst_norm.shape))
-    # Drawing a circle around corners
-    for i in range(dst_norm.shape[0]):
-        for j in range(dst_norm.shape[1]):
-            if int(dst_norm[i,j]) > 128:
-                result[i][j] = 255
-            else:
-                result[i][j]=0
-    cv2.namedWindow('Corners detected')
-    cv2.imshow('Corners detected', dst_norm_scaled)
+    # params for ShiTomasi corner detection
+    feature_params = dict( maxCorners = 100,
+                           qualityLevel = 0.3,
+                           minDistance = 5,
+                           blockSize = 5 )
+    result = cv2.goodFeaturesToTrack(frame, mask = None, **feature_params)
+    
     return result
 
 
@@ -48,13 +36,11 @@ def stack_video(video):
     return stack
 
 
-# needs debugging 
-def perform_optical_flow(stack_of_interest_points):
-    # params for ShiTomasi corner detection
-    feature_params = dict( maxCorners = 100,
-                           qualityLevel = 0.3,
-                           minDistance = 7,
-                           blockSize = 7 )
+
+#  collect points and return them in list of trajectories 
+def perform_optical_flow(stack,interest_points_first_frame,trajectory_length):
+    d1, d2 ,d3 = interest_points_first_frame.shape
+    trajectories = np.zeros((trajectory_length,d1,d2,d3))
     # Parameters for lucas kanade optical flow
     lk_params = dict( winSize  = (15,15),
                       maxLevel = 2,
@@ -62,16 +48,15 @@ def perform_optical_flow(stack_of_interest_points):
     # Create some random colors
     color = np.random.randint(0,255,(100,3))
     # Take first frame and find corners in it
-    old_frame = stack_of_interest_points[0]
-    old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
-    p0 = cv2.goodFeaturesToTrack(old_gray, mask = None, **feature_params)
+    old_frame = stack[0]
+    p0 = interest_points_first_frame
+    trajectories[0] = p0
     # Create a mask image for drawing purposes
     mask = np.zeros_like(old_frame)
-    for frame in stack:
-        
-        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    for j in range(1,trajectory_length):
+        frame = stack[j]
         # calculate optical flow
-        p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
+        p1, st, err = cv2.calcOpticalFlowPyrLK(old_frame, frame, p0, None, **lk_params)
         # Select good points
         if p1 is not None:
             good_new = p1[st==1]
@@ -88,27 +73,39 @@ def perform_optical_flow(stack_of_interest_points):
         if k == 27:
             break
         # Now update the previous frame and previous points
-        old_gray = frame_gray.copy()
+        old_frame = frame.copy()
         p0 = good_new.reshape(-1,1,2)
+        trajectories[j] = p0
+    return trajectories
+    
+    
+    
+    
+    
+"""========== MAIN ========== """
 
-#main
+
 video  = cv2.VideoCapture('data/dummy.avi')
 
 # EX1
 # Stack images   
 stack = stack_video(video)
 
-interest_points_throught_time = np.zeros((stack.shape))
-for i,frame in enumerate(stack):
-    extracted_points= extract_points_from_frame(frame)
-    interest_points_throught_time[i] = extracted_points
-    
-    #sanity check, 4 points should be found around corners 
-    print(extracted_points[extracted_points>0].size/4 == 4)
-    
-    
+# Calculate Interest points of first frame
+interest_points_first_frame = extract_points_from_frame(stack[0])    
 
-perform_optical_flow(stack)
+# Then use optical flow to calculate a trajectory over these points
+
+trajectory_length=15
+trajectories = perform_optical_flow(stack,interest_points_first_frame,trajectory_length)
+
+# I think the 30 dimensional descriptor of trajectory is for 15 frames * (x,y) for each frame
+# so we a need a tensor of shape (#interest_points, 15*2)
+trajectories_descriptor = trajectories.reshape(trajectory_length,interest_points_first_frame.shape[0],-1)
+trajectories_descriptor = np.swapaxes(trajectories_descriptor,0,1).reshape(interest_points_first_frame.shape[0], -1)
+print(trajectories_descriptor.shape == (4,30))
+
+
 """
 #Show video
 i=0
