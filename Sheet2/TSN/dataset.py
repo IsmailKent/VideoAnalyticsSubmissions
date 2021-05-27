@@ -7,6 +7,9 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
+from datetime import datetime
+from sys import getsizeof
+import gc
 
 
 class RGBDataset(torch.utils.data.Dataset):
@@ -25,38 +28,25 @@ class RGBDataset(torch.utils.data.Dataset):
         frames = []
         labels = []
         
-        #cut each video to K segments, then extract equal number of random snippits
-        #from each of them, and add these with the label 
+
         
+        ## keep list of video names and labels , only read them in get_item, to avoid very large memory needs.
+        ## In get Item, do the computation of snipets  
+        videos = []
         if (training):
             training_file = open(path+'/train.txt','r')
             for line in training_file:
                 # remove end of line char
                 line = line.rstrip('\n') 
-                print(path+'/'+line+'.avi')
-                video = read_video(path+'/'+line+'.avi')[0]
-                print(video)
-                length_video = video.shape[0]
-                length_of_segment = length_video // no_segments
-                snippits = [] 
-                for i in range(0,length_video, length_of_segment):
-                    index = np.random.randint(i , min(length_video, i+ length_of_segment))
-                    snippit = video[index]
-                    snippits.append(snippit)
-                frames += snippits
-                
-                
+                video_name = path+'/'+line+'.avi'
+                videos.append(video_name)
                 splitter = line.split('/')
                 label = int(self.classes.index(splitter[0]))
-    
-                labels += [label] * no_segments
+                labels.append(label)
+
                 
             training_file.close()
         
-
-        
-       # cut each video to no_segments segments, then extract a snippit
-       # from each of them, and add these with the label
          
         else:
             
@@ -65,34 +55,59 @@ class RGBDataset(torch.utils.data.Dataset):
             for line in validation_file:
                 # remove end of line char
                 line = line.rstrip('\n') 
-                video = read_video(path+'/'+line+'.avi')[0]
-                length_video = video.shape[0]
-                length_of_segment = length_video // no_segments
-                snippits = [] 
-                for i in range(0,length_video, length_of_segment):
-                    # calculate middle of segment, edge case last segment shorter than others 
-                    index = i + ( min(i+length_of_segment , length_video) - i) // 2
-                    snippit = video[index]
-                    snippits.append(snippit)
-                frames += snippits
+                video_name = path+'/'+line+'.avi'
+                videos.append(video_name)
                 splitter = line.split('/')
                 label = int(self.classes.index(splitter[0]))
-                labels += [label] * no_segments
+    
+                labels.append(label)
+
                 
                 
             validation_file.close()
         
-        self.frames = frames
+        self.videos = videos
         self.labels = labels
-        self.size = len(self.frames)
-        print(len(self.frames))
+        self.size = len(self.videos)
+        self.no_segments = no_segments
+        self.training = training
 
     def __len__(self):
         return self.size
 
 
     def __getitem__(self, index):
-        return self.frames[index], self.labels[index]
+        
+        #cut each video to K segments, then extract equal number of random snippits
+        #from each of them, and add these with the label 
+        
+        video_name = self.videos[index]
+
+        video_frames , _ , _ = read_video(video_name)
+        length_video = video_frames.shape[0]
+        length_of_segment = length_video // self.no_segments
+        snippets = torch.zeros((self.no_segments, video_frames.shape[1], video_frames.shape[2],video_frames.shape[3]))
+        for i in range(self.no_segments):
+            if (self.training):        
+                start = i*length_of_segment
+                finish= min( start + length_of_segment , length_video)
+                # for training index is random
+                idx = np.random.randint(start, finish)
+                snippet = video_frames[idx]
+                snippets[i] = snippet
+            else:
+                start = i*length_of_segment
+                finish= min( start + length_of_segment , length_video)
+                # for testing index is middle of segment
+                idx = int(start + length_of_segment//2)
+                snippet = video_frames[idx]
+                snippets[i] = snippet
+        
+        return snippets , self.labels[index]
+
+                
+                
+
     
     
     
