@@ -10,6 +10,7 @@ import numpy as np
 from datetime import datetime
 from sys import getsizeof
 import gc
+from torchvision import transforms
 
 
 class RGBDataset(torch.utils.data.Dataset):
@@ -86,24 +87,27 @@ class RGBDataset(torch.utils.data.Dataset):
         video_frames , _ , _ = read_video(video_name)
         length_video = video_frames.shape[0]
         length_of_segment = length_video // self.no_segments
-        snippets = torch.zeros((self.no_segments, video_frames.shape[1], video_frames.shape[2],video_frames.shape[3]))
+        snippets = torch.zeros((self.no_segments,video_frames.shape[3], video_frames.shape[1], video_frames.shape[2]))
         for i in range(self.no_segments):
             if (self.training):        
                 start = i*length_of_segment
                 finish= min( start + length_of_segment , length_video)
                 # for training index is random
                 idx = np.random.randint(start, finish)
-                snippet = video_frames[idx]
+                snippet = video_frames[idx].permute((2, 0, 1))
                 snippets[i] = snippet
             else:
                 start = i*length_of_segment
                 finish= min( start + length_of_segment , length_video)
                 # for testing index is middle of segment
                 idx = int(start + length_of_segment//2)
-                snippet = video_frames[idx]
+                snippet = video_frames[idx].permute((2, 0, 1))
                 snippets[i] = snippet
         
-        return snippets , self.labels[index]
+        # make a one hot encoding for class
+        labels = torch.zeros((len(self.classes),))
+        labels[self.labels[index]] = 1 
+        return snippets, self.labels[index]
 
                 
                 
