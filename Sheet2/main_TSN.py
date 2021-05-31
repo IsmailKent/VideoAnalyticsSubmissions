@@ -1,9 +1,10 @@
 import torch
-from TSN.dataset import RGBDataset
+from TSN.dataset import RGBDataset , OpticalFlowDataset
 from TSN.model import TSNRGBModel
 from datetime import datetime
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms.functional as tf
 
 
 
@@ -57,7 +58,15 @@ def accuracy_rgb(model, dataloader):
 epochs = 20
 no_segments=4
 batch_size=32
-effective_batch_size = batch_size * no_segments
+
+
+dataset_flow_training = OpticalFlowDataset(training=True, no_segments=no_segments)
+dataloader_flow_training = torch.utils.data.DataLoader(dataset_flow_training, batch_size=batch_size, shuffle=True, drop_last=True)
+
+for data , labels in dataloader_flow_training:
+    print(data.shape)
+    print(labels.shape)
+
 
 dataset_rgb_training = RGBDataset(training=True, no_segments=no_segments)
 dataloader_rgb_training = torch.utils.data.DataLoader(dataset_rgb_training, batch_size=batch_size, shuffle=True, drop_last=True)

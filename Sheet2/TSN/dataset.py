@@ -11,6 +11,10 @@ from datetime import datetime
 from sys import getsizeof
 import gc
 from torchvision import transforms
+from os import listdir
+from os.path import isfile, join
+import torchvision.transforms.functional as tf
+
 
 
 class RGBDataset(torch.utils.data.Dataset):
@@ -79,7 +83,7 @@ class RGBDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         
-        #cut each video to K segments, then extract equal number of random snippits
+        #cut each video to K segments, then extract a random snippit
         #from each of them, and add these with the label 
         
         video_name = self.videos[index]
@@ -104,7 +108,6 @@ class RGBDataset(torch.utils.data.Dataset):
                 snippet = video_frames[idx].permute((2, 0, 1))
                 snippets[i] = snippet
         
-        # make a one hot encoding for class
         label = self.labels[index]
         # return same labels n_segments time for all segments for training purposes 
         returned_labels = [label] * self.no_segments
@@ -118,13 +121,104 @@ class RGBDataset(torch.utils.data.Dataset):
     
     
 class OpticalFlowDataset(torch.utils.data.Dataset):
-    def __init__(self,type):
-        ## TODO
-        pass
+    # same as RGB class
+    def __init__(self,path='./data/mini-ucf101_flow_img_tvl1_gpu' , training = True , no_segments = 4):
+        
+        # load text file
+        self.classes = [] # read from classes text
+        classes_file = open('./data/mini_UCF/classes.txt','r')
+        for line in classes_file:
+            # remove end of line char
+            line = line.rstrip('\n') 
+            splitted = line.split(' ')
+            self.classes.append(splitted[1])
+        classes_file.close()
+        frames = []
+        labels = []
+        
+
+        
+        ## keep list of video names and labels , only read them in get_item, to avoid very large memory needs.
+        ## In get Item, do the computation of snipets  
+        videos = []
+        if (training):
+            training_file = open('./data/mini_UCF/train.txt','r')
+            for line in training_file:
+                # remove end of line char
+                line = line.rstrip('\n') 
+                video_name = path+'/'+line
+                videos.append(video_name)
+                splitter = line.split('/')
+                label = int(self.classes.index(splitter[0]))
+                labels.append(label)
+
+                
+            training_file.close()
+        
+         
+        else:
+            
+
+            validation_file =  open('./data/mini_UCF/validation.txt','r')
+            for line in validation_file:
+                # remove end of line char
+                line = line.rstrip('\n') 
+                video_name = path+'/'+line
+                videos.append(video_name)
+                splitter = line.split('/')
+                label = int(self.classes.index(splitter[0]))
+    
+                labels.append(label)
+
+                
+                
+            validation_file.close()
+        
+        self.videos = videos
+        self.labels = labels
+        self.size = len(self.videos)
+        self.no_segments = no_segments
+        self.training = training
+        self.path = path
 
     def __len__(self):
         return self.size
 
 
     def __getitem__(self, index):
-        return self.training_images[index], self.training_labels[index]
+        #cut each video to K segments, then extract equal number of random snippits
+        #from each of them, and add these with the label 
+        
+        video_name = self.videos[index]
+        #get list of all files in video folder
+        
+       
+        flow_images = [f for f in listdir(video_name) if isfile(join(video_name, f))]
+        
+        # read first flow image to get dimensions
+        first_image = tf.to_tensor(Image.open(video_name+'/'+flow_images[0]))
+        
+        length_video = len(flow_images) // 2
+        length_of_segment = length_video // self.no_segments
+        snippets = torch.zeros((self.no_segments,5*2, first_image.shape[1], first_image.shape[2]))
+        for i in range(self.no_segments):
+
+            start = i*length_of_segment
+            for flow_idx in range(5):
+                idx = start + flow_idx
+                # add path here
+                x_flow_image = Image.open(video_name+'/'+flow_images[idx])
+                x_flow_image = tf.to_tensor(x_flow_image)
+                
+                y_flow_image = Image.open(video_name+'/'+flow_images[idx+length_video])
+                y_flow_image = tf.to_tensor(y_flow_image)
+
+                snippets[i][2*flow_idx] = x_flow_image
+                snippets[i][2*flow_idx+1] = y_flow_image
+
+        
+        label = self.labels[index]
+        # return same labels n_segments time for all segments for training purposes 
+        returned_labels = [label] * self.no_segments
+        
+        return snippets, torch.LongTensor(returned_labels)
