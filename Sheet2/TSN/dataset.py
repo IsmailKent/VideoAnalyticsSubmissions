@@ -16,6 +16,7 @@ from torchvision import transforms
 class RGBDataset(torch.utils.data.Dataset):
     def __init__(self,path='./data/mini_UCF' , training = True , no_segments = 4):
         
+        self.no_segments = no_segments
         # load text file
         self.classes = [] # read from classes text
         classes_file = open(path+'/classes.txt','r')
@@ -25,7 +26,6 @@ class RGBDataset(torch.utils.data.Dataset):
             splitted = line.split(' ')
             self.classes.append(splitted[1])
         classes_file.close()
-        print(self.classes)
         frames = []
         labels = []
         
@@ -105,9 +105,11 @@ class RGBDataset(torch.utils.data.Dataset):
                 snippets[i] = snippet
         
         # make a one hot encoding for class
-        labels = torch.zeros((len(self.classes),))
-        labels[self.labels[index]] = 1 
-        return snippets, self.labels[index]
+        label = self.labels[index]
+        # return same labels n_segments time for all segments for training purposes 
+        returned_labels = [label] * self.no_segments
+        
+        return snippets, torch.LongTensor(returned_labels)
 
                 
                 
