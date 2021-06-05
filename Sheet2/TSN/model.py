@@ -54,7 +54,7 @@ class TSNFlowModel(torch.nn.Module):
 
                 
         self.feature_dim = getattr(self.base_model, self.base_model.last_layer_name).in_features
-        
+        print(self.feature_dim)
         #adjust dropout like in paper
         if self.dropout == 0:
             setattr(self.base_model, self.base_model.last_layer_name, nn.Linear(self.feature_dim, num_class))

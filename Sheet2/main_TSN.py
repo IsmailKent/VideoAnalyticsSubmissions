@@ -113,9 +113,12 @@ def fuse_predictions(rgb_model, flow_model, snippets):
     
 
 
-epochs = 1
+epochs = 50
 no_segments=4
-batch_size=16
+batch_size=32
+
+#set how to init weights of first layer of flow model
+init_flow_with_rgb_weights = True
 
 
 
@@ -142,6 +145,19 @@ for epoch in range(epochs):
     accuracy = calc_accuracy(TSN_rgb_model, dataloader_rgb_testing)
     print('current accuracy: {}'.format(accuracy))
 
+# take first conv layer kernels from RGB model and average them for the flow model 
+init_weights = torch.mean(TSN_rgb_model.base_model.conv1.weight, dim=1)
+# add the 2nd dimension back
+init_weights = init_weights[:,None,:,:]
+# turn to 10 channels
+init_weights = init_weights.repeat(1,10,1,1).cuda()
+
+
+# Save model on disk and delete it to free memory
+
+torch.save(TSN_rgb_model,'TSN_rgb_model')
+del TSN_rgb_model
+
 
 print("========STARTING FLOW TRAINING==========")
 
@@ -151,8 +167,10 @@ dataloader_flow_training = torch.utils.data.DataLoader(dataset_flow_training, ba
 dataset_flow_testing = OpticalFlowDataset(training=False, no_segments=no_segments)
 dataloader_flow_testing = torch.utils.data.DataLoader(dataset_flow_testing, batch_size=batch_size, shuffle=True, drop_last=True)
 
-
-TSN_flow_model = TSNFlowModel().cuda()
+if (init_flow_with_rgb_weights):
+    TSN_flow_model = TSNFlowModel(first_layer_weights = init_weights).cuda()
+else:
+    TSN_flow_model = TSNFlowModel().cuda()
 optimizer_flow = torch.optim.Adam(TSN_flow_model.parameters(),lr=5e-4,betas=(0.9,0.95))
 
 for epoch in range(epochs):
@@ -166,14 +184,16 @@ for epoch in range(epochs):
     print('current accuracy: {}'.format(accuracy))
     
     
-    
+torch.save(TSN_flow_model, 'TSN_flow_model')
 print("========TESTING FUSION==========")
 
 
+# reload RGB model to compare 
+TSN_rgb_model = torch.load('TSN_rgb_model')
 fusion_validation_set = FusingValidationDataset()
 fusion_dataloader = torch.utils.data.DataLoader(fusion_validation_set, batch_size=batch_size, shuffle=True, drop_last=True)
 accuracy_fused = accuracy_two_models_together(TSN_rgb_model,TSN_flow_model,fusion_dataloader)
-print("Accuracy of the fusion of two model is : {}".format())
+print("Accuracy of the fusion of two model is : {}".format(accuracy_fused))
 
 
     
