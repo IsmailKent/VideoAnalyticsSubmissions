@@ -1,16 +1,8 @@
-import matplotlib.pyplot as plt
 import torch
-import torchvision
-from torchvision.io.video import read_video , read_video_timestamps
-import torch.nn as nn
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
+from torchvision.io.video import read_video
 from PIL import Image
 import numpy as np
-from datetime import datetime
-from sys import getsizeof
-import gc
-from torchvision import transforms
+
 from os import listdir
 from os.path import isfile, join
 import torchvision.transforms.functional as tf
@@ -30,7 +22,6 @@ class RGBDataset(torch.utils.data.Dataset):
             splitted = line.split(' ')
             self.classes.append(splitted[1])
         classes_file.close()
-        frames = []
         labels = []
         
 
@@ -133,7 +124,6 @@ class OpticalFlowDataset(torch.utils.data.Dataset):
             splitted = line.split(' ')
             self.classes.append(splitted[1])
         classes_file.close()
-        frames = []
         labels = []
         
 
@@ -228,7 +218,7 @@ class OpticalFlowDataset(torch.utils.data.Dataset):
 # A dataset class that returns both rgb and flow snippets together, to test fusion
 class FusingValidationDataset(torch.utils.data.Dataset):
     # same as RGB class
-    def __init__(self,path_rgb= './data/mini_UCF/classes.txt' , path_flow='./data/mini-ucf101_flow_img_tvl1_gpu' , no_segments = 4):
+    def __init__(self,path_rgb= './data/mini_UCF' , path_flow='./data/mini-ucf101_flow_img_tvl1_gpu' , no_segments = 4):
         
         # load text file
         self.classes = [] # read from classes text
@@ -239,7 +229,6 @@ class FusingValidationDataset(torch.utils.data.Dataset):
             splitted = line.split(' ')
             self.classes.append(splitted[1])
         classes_file.close()
-        frames = []
         labels = []
         
 
@@ -253,7 +242,7 @@ class FusingValidationDataset(torch.utils.data.Dataset):
         for line in validation_file:
             # remove end of line char
             line = line.rstrip('\n') 
-            video_name_rgb = path_rgb+'/'+line
+            video_name_rgb = path_rgb+'/'+line+'.avi'
             video_name_flow = path_flow+'/'+line
             videos_rgb.append(video_name_rgb)
             videos_flow.append(video_name_flow)
@@ -269,7 +258,7 @@ class FusingValidationDataset(torch.utils.data.Dataset):
         self.videos_rgb = videos_rgb
         self.videos_flow = videos_flow
         self.labels = labels
-        self.size = len(self.videos)
+        self.size = len(self.videos_rgb)
         self.no_segments = no_segments
         self.path_rgb = path_rgb
         self.path_flow = path_flow
@@ -293,7 +282,6 @@ class FusingValidationDataset(torch.utils.data.Dataset):
         for i in range(self.no_segments):
 
             start = i*length_of_segment
-            finish= min( start + length_of_segment , length_video)
             # for testing index is middle of segment
             idx = int(start + length_of_segment//2)
             snippet = video_frames[idx].permute((2, 0, 1))

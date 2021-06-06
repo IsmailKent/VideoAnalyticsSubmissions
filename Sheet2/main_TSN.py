@@ -1,10 +1,8 @@
 import torch
 from TSN.dataset import RGBDataset , OpticalFlowDataset , FusingValidationDataset
 from TSN.model import TSNRGBModel , TSNFlowModel
-from datetime import datetime
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms.functional as tf
 
 
 
@@ -47,8 +45,6 @@ def calc_accuracy(model, dataloader):
         correct = (predicted_classes == labels_)
         num_correct += correct.sum().float()
         num_samples+= labels_.shape[0]
-        print('num of samples : ' , num_samples)
-        print('num_correct : ', num_correct)
         
         del data, labels , data_ , labels_
         torch.cuda.empty_cache()
@@ -113,7 +109,7 @@ def fuse_predictions(rgb_model, flow_model, snippets):
     
 
 
-epochs = 50
+epochs = 1
 no_segments=4
 batch_size=32
 

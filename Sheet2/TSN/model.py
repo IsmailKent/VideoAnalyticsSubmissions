@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchvision
-from torch.nn.init import normal, constant
-import numpy as np
 
 class TSNRGBModel(torch.nn.Module):
     def __init__(self, num_class = 25, dropout = 0.8):
