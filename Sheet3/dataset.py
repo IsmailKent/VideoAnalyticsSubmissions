@@ -46,9 +46,14 @@ class JHMDB_Dataset(torch.utils.data.Dataset):
             objects_file.close()
         self.size = len(self.image_paths)
         
-        self.transforms =  transforms.Compose([transforms.ToTensor(),
-                                              transforms.Normalize((0.485, 0.456, 0.406), (0.229,0.224, 0.225))]
-                   )
+        
+        # default transforms for ResNet
+        self.transforms = transforms.Compose([
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
  
         
 
