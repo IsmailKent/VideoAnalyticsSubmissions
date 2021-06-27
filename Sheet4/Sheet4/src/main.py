@@ -19,7 +19,7 @@ def train(model,dataloader,optimizer):
         if i % 10 == 0:
                 print("    Batch {}: loss = {}".format(i ,loss.item()))
         i += 1
-        running_loss = loss.items()
+        running_loss = loss.item()
     return running_loss / len(dataloader)
 
     
@@ -39,9 +39,9 @@ def train_parallel(model, dataloader,optimizer):
         loss.backward()
         optimizer.step()
         if i % 10 == 0:
-                print("    Batch {}: loss = {}".format(i ,loss.item()))
+                print("    Batch {}: combined loss = {}".format(i ,loss.item()))
         i += 1
-        running_loss = loss.items()
+        running_loss = loss.item()
     return running_loss / len(dataloader)
 
 
@@ -69,8 +69,8 @@ def collate_fn_padd(batch):
             
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-batch_size = 2
-epochs = 1000
+batch_size = 4
+epochs = 50
 num_classes = 48
 
 
@@ -95,4 +95,8 @@ parallel_TCNs_optimizer = torch.optim.Adam(parallel_TCNs.parameters(),lr=1e-4)
 
 # call training functions from above inside this loop
 for epoch in range(epochs):
-    pass 
+    print("RUNNING EPOCH: {}".format(epoch+1))
+    #train(single_TCN,training_dataloader , single_TCN_optimizer )
+    #train(multi_stage_TCN,training_dataloader , multi_stage_TCN_optimizer )
+    
+    train_parallel(parallel_TCNs, training_dataloader, parallel_TCNs_optimizer)
