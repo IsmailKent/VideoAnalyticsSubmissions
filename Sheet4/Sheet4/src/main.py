@@ -84,13 +84,13 @@ test_dataloader = torch.utils.data.DataLoader(test_dataset,collate_fn=collate_fn
 
 
 single_TCN = TCN()
-single_TCN_optimizer = torch.optim.Adam(single_TCN.parameters(),lr=1e-4)
+single_TCN_optimizer = torch.optim.Adam(single_TCN.parameters(),lr=0.001)
 
 multi_stage_TCN = MultiStageTCN()
-multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN.parameters(),lr=1e-4)
+multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN.parameters(),lr=0.001)
 
 parallel_TCNs = ParallelTCNs()
-parallel_TCNs_optimizer = torch.optim.Adam(parallel_TCNs.parameters(),lr=1e-4)
+parallel_TCNs_optimizer = torch.optim.Adam(parallel_TCNs.parameters(),lr=0.001)
 
 
 # call training functions from above inside this loop
