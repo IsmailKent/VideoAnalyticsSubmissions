@@ -1,6 +1,7 @@
+# coding: utf-8
 import numpy as np
 import sys
-
+import torch
 
 def get_labels_start_end_time(frame_wise_labels, bg_class=["background"]):
     labels = []
@@ -26,7 +27,7 @@ def get_labels_start_end_time(frame_wise_labels, bg_class=["background"]):
 def levenstein(p, y, norm=False):
     m_row = len(p)    
     n_col = len(y)
-    D = np.zeros([m_row+1, n_col+1], np.float)
+    D = np.zeros([m_row+1, n_col+1], np.float64)
     for i in range(m_row+1):
         D[i, 0] = i
     for i in range(n_col+1):
@@ -80,26 +81,44 @@ def f_score(recognized, ground_truth, overlap, bg_class=["background"]):
     return float(tp), float(fp), float(fn)
 
 
-def main():
+
+
+def read_file(path):
+    with open(path, 'r') as f:
+        content = f.read()
+        f.close()
+    return content
+
+
+def get_results(model,features, labels, masks): # Input  = features, labels and masks for 1 image
+    out = model(features,masks)
+    out_hot = torch.max(out,1).indices #?? Should we apply softmax first?
+    recog_content = out_hot.numpy()
+    recog_content = recog_content.reshape(recog_content.shape[1])
+    gt_content = labels.numpy()
+    gt_content = gt_content.reshape(gt_content.shape[1])
+    return(gt_content,recog_content)
+
+
+
+
+def eval_(model, test_dataloader):# Batch size 1
     recog_path = sys.argv[1] # pass the path of the directory that contains your predictions as a command line parameter
-    ground_truth_path = "./data/groundTruth/"
-    file_list = "./data/test.bundle"
+    ground_truth_path = "../data/groundTruth/"
+    file_list = "../data/test.bundle"
 
     list_of_videos = read_file(file_list).split('\n')[:-1]
-
+    
     overlap = [.1, .25, .5]
     tp, fp, fn = np.zeros(3), np.zeros(3), np.zeros(3)
 
     correct = 0
     total = 0
     edit = 0
-
-    for vid in list_of_videos:
-
-        gt_content = # .... ToDo: read the content of the ground truth video and store the frame-wise labels in this list
+    
+    for features, labels, masks in test_dataloader:
+        gt_content,recog_content = get_results(model,features, labels, masks)
         
-        recog_content = # .... ToDo:  this variable should contain a list of the predicted frame-wise labels for the corresponding video
-
         for i in range(len(gt_content)):
             total += 1
             if gt_content[i] == recog_content[i]:
@@ -112,18 +131,16 @@ def main():
             tp[s] += tp1
             fp[s] += fp1
             fn[s] += fn1
-            
-    print("Acc: %.4f" % (100*float(correct)/total))
-    print("Edit: %.4f" % ((1.0*edit)/len(list_of_videos)))
+
+    print ("Acc: %.4f" % (100*float(correct)/total))
+    print ('Edit: %.4f' % ((1.0*edit)/len(list_of_videos)))
+
     for s in range(len(overlap)):
         precision = tp[s] / float(tp[s]+fp[s])
         recall = tp[s] / float(tp[s]+fn[s])
-    
+
         f1 = 2.0 * (precision*recall) / (precision+recall)
 
         f1 = np.nan_to_num(f1)*100
-        print("F1@%0.2f: %.4f" % (overlap[s], f1))
+        print ('F1@%0.2f: %.4f' % (overlap[s], f1))
 
-
-if __name__ == '__main__':
-    main()
