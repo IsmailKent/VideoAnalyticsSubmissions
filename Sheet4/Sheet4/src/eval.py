@@ -103,6 +103,7 @@ def get_results(model,features, labels, masks): # Input  = features, labels and 
 
 
 def eval_(model, test_dataloader):# Batch size 1
+    model.eval()
     recog_path = sys.argv[1] # pass the path of the directory that contains your predictions as a command line parameter
     ground_truth_path = "../data/groundTruth/"
     file_list = "../data/test.bundle"
