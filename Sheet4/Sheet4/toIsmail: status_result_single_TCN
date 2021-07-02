@@ -4,4 +4,5 @@ Additionally, I am using just the max value of the output. The function above ev
 
 
 For the 2 other models I trained using 1 epoch and the cpu. 
-The remaining epochs I am doing in the labs pc.
+The remaining epochs needs to be done in the labs pc. Although I had a problem when uploading the data: Disk quota exceeded
+
