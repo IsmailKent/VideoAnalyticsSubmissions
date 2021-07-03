@@ -1,0 +1,11 @@
+Multi_stage_tcn:
+
+Batch size = 2 for training
+
+Acc: 48.6541
+Edit: 5.3867
+F1@0.10: 3.8042
+F1@0.25: 3.0100
+F1@0.50: 1.7313
+
+
