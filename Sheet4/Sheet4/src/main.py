@@ -150,21 +150,27 @@ training_dataloader = torch.utils.data.DataLoader(training_dataset,collate_fn=co
 test_dataset = TCNDataset(training=False)
 test_dataloader = torch.utils.data.DataLoader(test_dataset,collate_fn=collate_fn_padd,  batch_size=batch_size, shuffle=False, drop_last=False)
 
-
 single_TCN = TCN()
+single_TCN = single_TCN.to(device)
 single_TCN_optimizer = torch.optim.Adam(single_TCN.parameters(),lr=0.001)
 
 multi_stage_TCN = MultiStageTCN()
+multi_stage_TCN = multi_stage_TCN(device)
 multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN.parameters(),lr=0.001)
 
+multi_stage_TCN_video_loss = MultiStageTCN()
+multi_stage_TCN_video_loss = multi_stage_TCN_video_loss.to(device)
+multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN_video_loss.parameters(),lr=0.001)
+
 parallel_TCNs = ParallelTCNs()
+parallel_TCNs = parallel_TCNs.to(device)
 parallel_TCNs_optimizer = torch.optim.Adam(parallel_TCNs.parameters(),lr=0.001)
 
 
 # call training functions from above inside this loop
 for epoch in range(epochs):
     print("RUNNING EPOCH: {}".format(epoch+1))
-    #train(single_TCN,training_dataloader , single_TCN_optimizer )
-    #train(multi_stage_TCN,training_dataloader , multi_stage_TCN_optimizer )
-    
+    train(single_TCN,training_dataloader , single_TCN_optimizer )
+    train(multi_stage_TCN,training_dataloader , multi_stage_TCN_optimizer )
+    train_video_loss(multi_stage_TCN_video_loss,training_dataloader , multi_stage_TCN_optimizer 
     train_parallel(parallel_TCNs, training_dataloader, parallel_TCNs_optimizer)
