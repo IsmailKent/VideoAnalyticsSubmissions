@@ -6,11 +6,79 @@ from dataset import TCNDataset
 from model import TCN , MultiStageTCN , ParallelTCNs
 
 
+# get target vector
+# The target is a vector with a dimension equals the number of classes in the dataset. 
+# The i-th element of this vector is 1 if the i-th class is present in the video, otherwise it should be 0. 
+def get_target_vector(labels):
+    target = np.zeros((labels.shape[0],48)) 
+    i = 0
+    for l in labels:
+        for c in range(num_classes):
+            if (c) in l: 
+                target[i][c]=1
+
+        i= i+1
+    # Necassary to convert to a PyTorch Tensor
+    target = torch.from_numpy(target)
+    # Necessary to cast to float
+    target = target.type(torch.float)
+    target  = target.to(device)
+    return(target) 
+
+
+
+#To get the video level prediction apply a max pooling on
+#the temporal dimension of the predicted frame-wise logits.
+def get_video_level_prediction(out):
+    # Max pool in all the frames
+    max_pool = nn.MaxPool1d(out.shape[2])
+    out = max_pool(out)
+    # Softmax in the output, considering the input for the binary cross entropy should be between 0 and 1
+    soft_max = nn.Softmax(dim=1)
+    out = soft_max(out)
+    # Reshape the vector to be (batch_size, number of classes)
+    out = out.reshape(out.shape[0],out.shape[1])
+    # Necessary to cast to float
+    out = out.type(torch.float)
+    return (out)
+
+
+def video_level_loss(out,labels):
+    out = get_video_level_prediction(out)
+    labels = get_target_vector(labels)
+    
+    return (torch.nn.functional.binary_cross_entropy(out, labels))
+
+
+
+def train_video_loss(model,dataloader,optimizer):
+    i=0
+    criterion = nn.CrossEntropyLoss()
+    running_loss = 0 
+    for features, labels, masks in dataloader:
+        features = features.to(device)
+        labels = labels.to(device)
+        masks = masks.to(device)
+        out = model(features,masks)
+        optimizer.zero_grad()
+        loss = criterion(out, labels)+ video_level_loss(out, labels)
+        loss.backward()
+        optimizer.step()
+        if i % 10 == 0:
+                print("    Batch {}: loss = {}".format(i ,loss.item()))
+        i += 1
+        running_loss = loss.item()
+    return running_loss / len(dataloader)
+
+
 def train(model,dataloader,optimizer):
     i=0
     criterion = nn.CrossEntropyLoss()
     running_loss = 0 
     for features, labels, masks in dataloader:
+        features = features.to(device)
+        labels = labels.to(device)
+        masks = masks.to(device)
         out = model(features,masks)
         optimizer.zero_grad()
         loss = criterion(out, labels)
@@ -29,7 +97,6 @@ def train_parallel(model, dataloader,optimizer):
     criterion = nn.CrossEntropyLoss()
     running_loss = 0 
     for features, labels, masks in dataloader:
-        #features , labels , masks = features.cuda() , labels.cuda() , masks.cuda()
         out1, out2, out3 ,out_average = model(features,masks)
         optimizer.zero_grad()
         loss1 = criterion(out1, labels)
@@ -40,7 +107,7 @@ def train_parallel(model, dataloader,optimizer):
         loss.backward()
         optimizer.step()
         if i % 10 == 0:
-                print("    Batch {}: combined loss = {} , average loss: {}".format(i ,loss.item(), loss.item()/4 ))
+                print("    Batch {}: combined loss = {}".format(i ,loss.item()))
         i += 1
         running_loss = loss.item()
     return running_loss / len(dataloader)
@@ -83,29 +150,27 @@ training_dataloader = torch.utils.data.DataLoader(training_dataset,collate_fn=co
 test_dataset = TCNDataset(training=False)
 test_dataloader = torch.utils.data.DataLoader(test_dataset,collate_fn=collate_fn_padd,  batch_size=batch_size, shuffle=False, drop_last=False)
 
-
 single_TCN = TCN()
+single_TCN = single_TCN.to(device)
 single_TCN_optimizer = torch.optim.Adam(single_TCN.parameters(),lr=0.001)
 
 multi_stage_TCN = MultiStageTCN()
+multi_stage_TCN = multi_stage_TCN(device)
 multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN.parameters(),lr=0.001)
 
-parallel_TCNs = ParallelTCNs() #.cuda()
+multi_stage_TCN_video_loss = MultiStageTCN()
+multi_stage_TCN_video_loss = multi_stage_TCN_video_loss.to(device)
+multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN_video_loss.parameters(),lr=0.001)
+
+parallel_TCNs = ParallelTCNs()
+parallel_TCNs = parallel_TCNs.to(device)
 parallel_TCNs_optimizer = torch.optim.Adam(parallel_TCNs.parameters(),lr=0.001)
 
 
 # call training functions from above inside this loop
 for epoch in range(epochs):
     print("RUNNING EPOCH: {}".format(epoch+1))
-    #train(single_TCN,training_dataloader , single_TCN_optimizer )
-    #train(multi_stage_TCN,training_dataloader , multi_stage_TCN_optimizer )
-    
+    train(single_TCN,training_dataloader , single_TCN_optimizer )
+    train(multi_stage_TCN,training_dataloader , multi_stage_TCN_optimizer )
+    train_video_loss(multi_stage_TCN_video_loss,training_dataloader , multi_stage_TCN_optimizer)
     train_parallel(parallel_TCNs, training_dataloader, parallel_TCNs_optimizer)
-    torch.save(parallel_TCNs, "./parallel_model_after_epoch_{}".format(epoch+1))
-    
-torch.save(parallel_TCNs, "./parallel_tcn") 
-from eval import eval_
-eval_(parallel_TCNs,test_dataloader)
-
-
-
