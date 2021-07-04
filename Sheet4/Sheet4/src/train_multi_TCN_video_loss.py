@@ -32,7 +32,7 @@ def get_target_vector(labels):
     target = torch.from_numpy(target)
     # Necessary to cast to float
     target = target.type(torch.float)
-    
+    target  = target.to(device)
     return(target) 
 
 
@@ -105,7 +105,7 @@ def collate_fn_padd(batch):
 
 
 
-batch_size = 4
+batch_size = 3 # Cuda out memory for batch size 4
 epochs = 50
 num_classes = 48
 
@@ -119,8 +119,8 @@ training_dataloader = torch.utils.data.DataLoader(training_dataset,collate_fn=co
 
 
 
-multi_stage_TCN = MultiStageTCN()
-multi_stage_TCN = multi_stage_TCN.to(device)
+multi_stage_TCN_video_loss = MultiStageTCN()
+multi_stage_TCN_video_loss = multi_stage_TCN_video_loss.to(device)
 multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN.parameters(),lr=0.001)
 
 
@@ -131,11 +131,11 @@ multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN.parameters(),lr=0.0
 for epoch in range(epochs):
     print("RUNNING EPOCH: {}".format(epoch+1))
     
-    train_video_loss(multi_stage_TCN,training_dataloader , multi_stage_TCN_optimizer )
+    train_video_loss(multi_stage_TCN_video_loss,training_dataloader , multi_stage_TCN_optimizer )
     
 
 
 
 
-torch.save(multi_stage_TCN, "./multi_stage_tcn_video_loss")
+torch.save(multi_stage_TCN_video_loss, "./multi_stage_tcn_video_loss")
 
