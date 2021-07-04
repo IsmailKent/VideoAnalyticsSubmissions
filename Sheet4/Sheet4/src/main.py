@@ -29,6 +29,7 @@ def train_parallel(model, dataloader,optimizer):
     criterion = nn.CrossEntropyLoss()
     running_loss = 0 
     for features, labels, masks in dataloader:
+        #features , labels , masks = features.cuda() , labels.cuda() , masks.cuda()
         out1, out2, out3 ,out_average = model(features,masks)
         optimizer.zero_grad()
         loss1 = criterion(out1, labels)
@@ -39,7 +40,7 @@ def train_parallel(model, dataloader,optimizer):
         loss.backward()
         optimizer.step()
         if i % 10 == 0:
-                print("    Batch {}: combined loss = {}".format(i ,loss.item()))
+                print("    Batch {}: combined loss = {} , average loss: {}".format(i ,loss.item(), loss.item()/4 ))
         i += 1
         running_loss = loss.item()
     return running_loss / len(dataloader)
@@ -89,7 +90,7 @@ single_TCN_optimizer = torch.optim.Adam(single_TCN.parameters(),lr=0.001)
 multi_stage_TCN = MultiStageTCN()
 multi_stage_TCN_optimizer = torch.optim.Adam(multi_stage_TCN.parameters(),lr=0.001)
 
-parallel_TCNs = ParallelTCNs()
+parallel_TCNs = ParallelTCNs() #.cuda()
 parallel_TCNs_optimizer = torch.optim.Adam(parallel_TCNs.parameters(),lr=0.001)
 
 
@@ -100,3 +101,11 @@ for epoch in range(epochs):
     #train(multi_stage_TCN,training_dataloader , multi_stage_TCN_optimizer )
     
     train_parallel(parallel_TCNs, training_dataloader, parallel_TCNs_optimizer)
+    torch.save(parallel_TCNs, "./parallel_model_after_epoch_{}".format(epoch+1))
+    
+torch.save(parallel_TCNs, "./parallel_tcn") 
+from eval import eval_
+eval_(parallel_TCNs,test_dataloader)
+
+
+
