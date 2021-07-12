@@ -20,7 +20,7 @@ We use to calc P(X_t|s) using Bayes: P(X_t|s) = P(s|X_t) . const / P(s)
 
 #Initialized for each action, each action in video has its own HMM instance
 class HMM():
-    def __init__(self, n_states = 16):
+    def __init__(self, n_states = 192):
         # HMM can be defined as a tuple of
         # pi: a vector of length n_states, probabiliy of starting in a certain state
         # N: set of states, here the subactions
@@ -84,8 +84,7 @@ class HMM():
     
 
 class GMM():
-    # We use number of Gaussian components exactly equal to number of states
-    def __init__(self, frames, state_dim = 16, M=16, observation_dim = 64):
+    def __init__(self, frames, state_dim = 192, M=16, observation_dim = 64):
             self.state_dim = state_dim
             self.M = M
             self.observation_dim = observation_dim
@@ -188,7 +187,7 @@ class SimpleMLP(torch.nn.Module):
         
     
 class RNN(torch.nn.Module):
-    def __init__(self, input_dim = 64, hidden_dim = 256, out_dim = 16, nlayers = 21):
+    def __init__(self, input_dim = 64, hidden_dim = 256, out_dim = 192, nlayers = 21):
         self.GRU = torch.nn.GRU(input_dim, hidden_dim, nlayers)
         self.fc = nn.Linear(hidden_dim, out_dim)
         self.activation = nn.ReLU()
