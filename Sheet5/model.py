@@ -64,21 +64,78 @@ class HMM():
     #source with good explanation:
     #https://www.youtube.com/watch?v=gYma8Gw38Os
     # b_i generated in GMM method
-    def get_beta(self):
-        pass
+    def get_beta(self, frames, b_i_t):
+        T = frames.shape[-2]
+        beta_i_t = torch.zeros((self.n_states, T))
+        #base case
+        beta_i_t [:,T-1] = torch.ones((1,self.n_states))
+        for i in range(frames.shape[-2]-1):
+            t = T - i -1
+            for j in range(self.n_states):
+                Sum=0
+                for k in range(self.n_states):
+                    Sum+= beta_i_t[k][t]* self.A[k][j]
+                beta_i_t[j][t-1]= Sum * b_i_t[j][t-1]
+                
+        
+        self.beta_i_t = beta_i_t
+        return beta_i_t
     
-    def get_gamma(self):
-        pass
+    # slide 44 lecture set 5
+    def get_gamma(self,frames , b_i_t):
+        T = frames.shape[-2]
+        gamma_i_t = torch.zeros((self.n_states, T))
+        alpha_i_t = self.alpha_i_t
+        beta_i_t = self.beta_i_t
+        for t in range(T):
+            for i in range (self.n_states):
+                gamma_i_t[i][t] = alpha_i_t[i][t] * beta_i_t[i][t]
+        
+            #normalize
+            gamma_i_t[:,t]/= torch.sum(gamma_i_t[:,t])
+        self.gamma_i_t = gamma_i_t
+        return gamma_i_t
     
-    def get_eta(self):
-        pass
+    # slide 44 lecture set 5
+    def get_eta(self,frames , b_i_t):
+        T = frames.shape[-2]
+        eta_i_j_t = torch.zeros((self.n_states,self.n_states, T))
+        alpha_i_t = self.alpha_i_t
+        beta_i_t = self.beta_i_t
+        for t in range(T-1):
+            for i in range(self.n_states):
+                for j in range(self.n_states):
+                    eta_i_j_t[i][j][t] = alpha_i_t[i][t] *self.A[i][j] * b_i_t[j][t+1] * beta_i_t[j][t+1]
+            
+            # normalize
+            eta_i_j_t[:,:,t]/= torch.sum(eta_i_j_t[:,:,t])
+        
+        self.eta_i_j_t = eta_i_j_t
+        return eta_i_j_t
     
-    #slide 47
+    #slide 48
     def update_pi(self):
-        pass
-    #slide 47
-    def update_A(self):
-        pass
+        self.pi = self.gamma_i_t[:,0]
+    
+    #slide 45
+    def update_A(self, frames):
+        T = frames.shape[-2]
+        gamma_i_t = self.gamma_i_t
+        eta_i_j_t = self.eta_i_j_t
+        for i in range(self.n_states):
+            for j in range(self.n_states):
+                self.A[i][j] = torch.sum(eta_i_j_t[i,j,:]) / torch.sum(gamma_i_t[i,:])
+                
+                
+    def learn(self, frames, b_i_t):
+        alpha_i_t = self.get_alpha( frames, b_i_t)
+        beta_i_t = self.get_beta( frames, b_i_t) 
+        gamma_i_t = self.get_gamma(frames, b_i_t)
+        eta_i_j_t = self.get_eta(frames, b_i_t)
+        self.update_pi()
+        self.update_A(frames)
+        
+        return alpha_i_t , beta_i_t , gamma_i_t , eta_i_j_t         
         
       
     
@@ -93,7 +150,8 @@ class GMM():
             self.means_j_l = torch.zeros((state_dim,M,observation_dim))
             for j in range(state_dim):
                 for l in range(M):
-                    random_index = torch.randint(0, frames.shape[-2])
+                    random_index = torch.randint(low = 0, high= frames.shape[-2] , size =(1,))
+                    print(frames.shape)
                     self.means_j_l= frames[random_index]
             # init covariances with unit matrices
             self.covariances_j_l = torch.zeros((state_dim,M,observation_dim, observation_dim))
@@ -146,19 +204,19 @@ class GMM():
     
     # based on slide 46 action segmentation lecture
     
-    def get_b(self,frames):
+    def get_b_i_t(self,frames):
         result = torch.zeros((frames.shape[0], self.state_dim))
-        b_j_l = self.get_b_j_l(frames)
+        b_j_l = self.get_b_j_l_t(frames)
         for idx, frame in enumerate(frames):
             for j in range(self.state_dim): 
                 result[idx][j] = torch.sum(self.weights_j_l * b_j_l[j])
                 
-        return result
+        return result.T
                 
         
     
     # return Tensor with shape (#frames,state_dim, M ) with normalized rows, each representing predictions according only to component l \in M
-    def get_b_j_l(self,frames):
+    def get_b_j_l_t(self,frames):
         result = torch.zeros((frames.shape[0],  self.state_dim, self.M))
         for idx, frame in enumerate(frames):
             for j in range(self.state_dim):
