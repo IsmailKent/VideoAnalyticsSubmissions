@@ -151,8 +151,7 @@ class GMM():
             for j in range(state_dim):
                 for l in range(M):
                     random_index = torch.randint(low = 0, high= frames.shape[-2] , size =(1,))
-                    print(frames.shape)
-                    self.means_j_l= frames[random_index]
+                    self.means_j_l= frames[random_index].T
             # init covariances with unit matrices
             self.covariances_j_l = torch.zeros((state_dim,M,observation_dim, observation_dim))
             for j in range(state_dim):
@@ -185,7 +184,7 @@ class GMM():
             for i in range(self.state_dim):
                 for l in range(self.M):
                     self.weights_j_l[i][l] = torch.sum(gamma_i_l_t[i][l]) / torch.sum(gamma[i])
-                    mean = torch.zeros(self.observation_dim)
+                    mean = torch.zeros((1,self.observation_dim))
                     for t in range(frames.shape[-2]):
                         mean+= gamma_i_l_t[i][l][t] * frames[t]
                         
@@ -222,6 +221,7 @@ class GMM():
             for j in range(self.state_dim):
                 for l in range(self.M):
                     mean = self.means_j_l[j][l]
+                    print(mean)
                     cov = self.covariances_j_l[j][l]
                     distr = torch.distributions.multivariate_normal.MultivariateNormal(mean,cov)
                     probability = distr.log_prob(frame)

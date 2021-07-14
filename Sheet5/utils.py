@@ -180,7 +180,7 @@ def get_transitions_prior(class2index):
     grammar_file = open("./Data/grammar.txt")
     for line in grammar_file:
             line = line.rstrip('\n')
-            path =  [int(class2index[x]) for x in line.split(" ")]
+            path =  [int(class2index[x]) for x in line.split(" ")[:-1]]
             grammar.append(path)
     grammar_file.close()
     A_prior = torch.zeros((num_subactions,num_subactions))
