@@ -66,19 +66,22 @@ class SampledTCN(torch.nn.Module):
     def __init__(self, sampling_factor, num_layers = 10, num_f_maps=64, dim = 2048, num_classes = 48 ):
         super(SampledTCN, self).__init__()
         # we downsamble using convolutions 
-        self.downsamble_conv = nn.Conv1d(dim, dim//sampling_factor, 1)
-        self.conv_1x1 = nn.Conv1d(dim//sampling_factor, num_f_maps, 1)
+        self.downsamble_conv = nn.Conv1d(dim, dim, 1 , dilation = sampling_factor)
+        self.conv_1x1 = nn.Conv1d(dim, num_f_maps, 1)
         self.layers = nn.ModuleList()
         for i in range(num_layers):
             layer = DilatedResidualLayer(i+1, num_f_maps, num_f_maps)
             self.layers.append(layer)
-        self.upsample_conv = nn.Conv1d(num_f_maps, dim, 1)
+
+        self.prediction_conv = nn.Conv1d(num_f_maps, num_classes, 1)
+        self.upsample_conv = nn.ConvTranspose1d(num_classes, num_classes, 1 , dilation= sampling_factor)
 
     def forward(self, x , mask):
         out = self.downsamble_conv(x)
         out = self.conv_1x1(out)
         for layer in self.layers:
             out = layer(out,mask)
+        out = self.prediction_conv(out) * mask[:, 0:1, :]
         out = self.upsample_conv(out) * mask[:, 0:1, :]
         return out
     
@@ -92,11 +95,6 @@ class ParallelTCNs(torch.nn.Module):
             self.TCN2 = SampledTCN(4, num_layers, num_f_maps, dim, num_classes)
              # scale reduced with factor 8 2048 -> 256
             self.TCN3 = SampledTCN(8, num_layers, num_f_maps, dim, num_classes)
-            
-            self.prediction_conv1 = nn.Conv1d(dim, num_classes, 1)
-            self.prediction_conv2 = nn.Conv1d(dim, num_classes, 1)
-            self.prediction_conv3 = nn.Conv1d(dim, num_classes, 1)
-
             self.prediction_conv_average = nn.Conv1d(dim, num_classes, 1)
             
             
@@ -105,11 +103,7 @@ class ParallelTCNs(torch.nn.Module):
             out2 = self.TCN2(x,mask)
             out3 = self.TCN3(x,mask)
             
-            average_out = torch.mean(torch.stack([out1,out2,out3]) , dim = 0)
-            out1 = self.prediction_conv1(out1) * mask[:, 0:1, :]
-            out2 = self.prediction_conv2(out2) * mask[:, 0:1, :]
-            out3 = self.prediction_conv3(out3) * mask[:, 0:1, :]
-            average_out = self.prediction_conv_average(average_out) * mask[:, 0:1, :]
+            average_out = torch.mean(torch.stack([out1,out2,out3]) , dim = 0) * mask[:, 0:1, :]
             return out1 , out2 , out3 , average_out
             
             

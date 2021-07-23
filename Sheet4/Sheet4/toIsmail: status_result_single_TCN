@@ -1,8 +1,0 @@
-The Single_TCN results are in the notebook file. Already trained for 50 epochs. The model is saved in single_tcn. But the accuracy and results are not good.
-Please, check the eval file. I am using the test_loader with a batch size 1 instead of a list like he does.
-Additionally, I am using just the max value of the output. The function above eval_ may be the problem. 
-
-
-For the 2 other models I trained using 1 epoch and the cpu. 
-The remaining epochs needs to be done in the labs pc. Although I had a problem when uploading the data: Disk quota exceeded
-
